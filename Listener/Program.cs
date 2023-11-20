@@ -46,19 +46,19 @@ namespace Listener
                         }
                     case "stop":
                         {
+                            //Console.Clear();
                             sListener.Stop();
-                            Console.Clear();
                             break;
                         }
                     case "info":
                         {
-                            Console.Clear();
+                            //Console.Clear();
                             sListener.Info();
                             break;
                         }
                     case "statistics":
                         {
-                            Console.Clear();
+                            //Console.Clear();
                             sListener.Statistics();
                             break;
                         }

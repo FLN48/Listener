@@ -18,6 +18,7 @@ namespace Listener
         private int m_CountMessage { get; set; } = 0;
         private TcpClient m_TcpClient { get; set; }
         private List<Sensor> sensors { get; set; } = new List<Sensor>();
+        int outCol, outRow, outHeight = 100;
         public ServListener(string _IP, string _Port)
         {
             m_IP = _IP;
@@ -27,7 +28,6 @@ namespace Listener
         {
             try
             {
-                m_TcpClient = new TcpClient();
                 return true;
             }
             catch (Exception ex)
@@ -42,12 +42,14 @@ namespace Listener
             {
                 if (m_Work)
                 {
-                    Helpers.WriteOut("Сервер уже запущен\r\n", false);
+                    WriteOut("Сервер уже запущен\r\n", false);
                 }
+                outCol =0;
+                outRow = 0;
                 m_Work = true;
                 m_TcpClient = new TcpClient();
                 await m_TcpClient.ConnectAsync(m_IP, Convert.ToInt32(m_Port));
-                Helpers.WriteOut("Сервер запущен\r\n",false);
+                WriteOut("Сервер запущен\r\n",false);
                 var stream = m_TcpClient.GetStream();
                 while (m_Work)
                 {
@@ -56,10 +58,10 @@ namespace Listener
                     {
                         Sensor sensor = new Sensor((TypeSensor)modelData.m_Types[i], modelData.m_Values[i]);
                         sensors.Add(sensor);
-                        Helpers.WriteOut($"Получены данные о сенсоре {Enum.GetName(typeof(TypeSensor), sensor.m_TypeSensor)}\r\n" +
+                        WriteOut($"Получены данные о сенсоре {Enum.GetName(typeof(TypeSensor), sensor.m_TypeSensor)}\r\n" +
                             $"Значение: {sensor.m_ValueSensor}\r\n",false);
                     }
-                    Helpers.WriteOut("///////////////////////////////////////////////\r\n",false);
+                    WriteOut("///////////////////////////////////////////////\r\n",false);
                     m_CountMessage++;
                 }
             }
@@ -77,42 +79,49 @@ namespace Listener
         {
             m_Work = false;
             m_TcpClient.Close();
+
+            WriteOut($"Введите команду из списка\r\n" +
+                    $"start\r\n" +
+                    $"stop\r\n" +
+                    $"info\r\n" +
+                    $"statistics\r\n" +
+                    $"exit\r\n");
             return true;
         }
         public bool Info()
         {
 
             int i = 1;
-            Helpers.WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Temperature)}\r\n",false);
+            WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Temperature)}\r\n",false);
             foreach (double d in Helpers.MovingAverage(sensors
                 .Where(s => s.m_TypeSensor == TypeSensor.Temperature)
                 .Select(s => s.m_ValueSensor).ToList(),
                 sensors.FindAll(s => s.m_TypeSensor == TypeSensor.Temperature).Count))
             {
-                Helpers.WriteOut($"{i++}: {d}\r\n");
+                WriteOut($"{i++}: {d}\r\n");
             }
-            Helpers.WriteOut("\r\n");
+            WriteOut("\r\n");
 
             i = 1;
-            Helpers.WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Humidity)}\r\n");
+            WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Humidity)}\r\n");
             foreach (double d in Helpers.MovingAverage(sensors
                 .Where(s => s.m_TypeSensor == TypeSensor.Humidity)
                 .Select(s => s.m_ValueSensor).ToList(),
                 sensors.FindAll(s => s.m_TypeSensor == TypeSensor.Humidity).Count))
             {
-                Helpers.WriteOut($"{i++}: {d}\r\n");
+                WriteOut($"{i++}: {d}\r\n");
             }
-            Helpers.WriteOut("\r\n");
+            WriteOut("\r\n");
             i = 1;
-            Helpers.WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Pressure)}\r\n");
+            WriteOut($"Данные датчика {Enum.GetName(typeof(TypeSensor), TypeSensor.Pressure)}\r\n");
             foreach (double d in Helpers.MovingAverage(sensors
                 .Where(s => s.m_TypeSensor == TypeSensor.Pressure)
                 .Select(s => s.m_ValueSensor).ToList(),
                 sensors.FindAll(s => s.m_TypeSensor == TypeSensor.Pressure).Count))
             {
-                Helpers.WriteOut($"{i++}: {d}\r\n");
+                WriteOut($"{i++}: {d}\r\n");
             }
-            Helpers.WriteOut("\r\n");
+            WriteOut("\r\n");
 
             return true;
         }
@@ -120,14 +129,58 @@ namespace Listener
         {
             if (m_Work)
             {
-                Helpers.WriteOut("$Сервер активен\r\n");
+                WriteOut("$Сервер активен\r\n");
             }
             else
             {
-                Helpers.WriteOut("$Сервер не активен\r\n");
+                WriteOut("$Сервер не активен\r\n");
             }
-            Helpers.WriteOut($"Количество полученный сообщений: {m_CountMessage}\r\n");
+            WriteOut($"Количество полученный сообщений: {m_CountMessage}\r\n");
             return true;
+        }
+        private void WriteOut(string msg, bool appendNewLine = false)
+        {
+            int inCol, inRow;
+            inCol = Console.CursorLeft;
+            inRow = Console.CursorTop;
+
+            int outLines = getMsgRowCount(outCol, msg) + (appendNewLine ? 1 : 0);
+            int outBottom = outRow + outLines;
+            if (outBottom > outHeight)
+                outBottom = outHeight;
+            if (inRow <= outBottom)
+            {
+                int scrollCount = outBottom - inRow + 1;
+                Console.MoveBufferArea(0, inRow, Console.BufferWidth, 1, 0, inRow + scrollCount);
+                inRow += scrollCount;
+            }
+            if (outRow + outLines > outHeight)
+            {
+                int scrollCount = outRow + outLines - outHeight;
+                Console.MoveBufferArea(0, scrollCount, Console.BufferWidth, outHeight - scrollCount, 0, 0);
+                outRow -= scrollCount;
+                Console.SetCursorPosition(outCol, outRow);
+            }
+            Console.SetCursorPosition(outCol, outRow);
+            if (appendNewLine)
+                Console.WriteLine(msg);
+            else
+                Console.Write(msg);
+            outCol = Console.CursorLeft;
+            outRow = Console.CursorTop;
+            Console.SetCursorPosition(inCol, inRow);
+        }
+
+        private int getMsgRowCount(int startCol, string msg)
+        {
+            string[] lines = msg.Split('\n');
+            int result = 0;
+            foreach (string line in lines)
+            {
+                result += (startCol + line.Length) / Console.BufferWidth;
+                startCol = 0;
+            }
+            return result + lines.Length - 1;
         }
     }
 }
